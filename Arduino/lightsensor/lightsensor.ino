@@ -1,65 +1,43 @@
 #include <SoftPWM.h>
 #include <SoftPWM_timer.h>
-
 #include <HID.h>
 
 
-const int touchSensor = 3;
+const int lightSensor = A0;
+const int tempSensor = A1;
 const int R = 8;
 const int G = 12;
 const int B = 13;
-
-int Rval = 255;
-int Gval = 0;
-int Bval = 0;
-int gaining = G;
 
 void setup() {
   SoftPWMBegin();
   Serial.begin(9600);
 }
 
-void colorCycle(double intensity) {
-  if (gaining == G) {
-    Gval += 1;
-    Rval -= 1;
-    if (Gval >= 255) {
-      gaining = B;
-    }
-  } else if (gaining == B) {
-    Bval += 1;
-    Gval -= 1;
-    if (Bval >= 255) {
-      gaining = R;
-    }
-  } else {
-    Rval += 1;
-    Bval -= 1;
-    if (Rval >= 255) {
-      gaining = G;
-    }
-  }
-
-  int invert = digitalRead(touchSensor);
-  if (invert) {
-    intensity = 1 - intensity;
-  }
-  if (intensity < .03) {
-    lightsOff();
-    return;
-  }
-  int Rset = int(Rval * intensity);
-  int Gset = int(Gval * intensity);
-  int Bset = int(Bval * intensity);
-  SoftPWMSet(R, Rset);
-  SoftPWMSet(G, Gset);
-  SoftPWMSet(B, Bset);
+double getCelsius(double reading) {
+  // MCP9700 conversion
+  return (reading * 3.25 / 1024 - 0.5) / 0.01;
 }
 
-void lightsOff() {
-  SoftPWMSet(R, 0);
-  SoftPWMSet(G, 0);
-  SoftPWMSet(B, 0);
+void setColor() {
+  int Rval = 0;
+  int Gval = 0;
+  int Bval = 0;
+
+  double temp = getCelsius(analogRead(tempSensor));
+  int maxTemp = 35;
+  int minTemp = -10;
+  double colorRatio = (temp - minTemp) / (maxTemp - minTemp);
+  Rval = colorRatio >= 0 ? int(255 * colorRatio) : 0;
+  Bval = colorRatio >= 0 ? int(255 * (1 - colorRatio)) : 255;
+
+  int sensorValue = analogRead(lightSensor);
+  double intensity = lightIntensity(sensorValue);
+  Gval += int(255 * intensity);
+
+  SoftPWMSet(R, min(Rval, 255));
+  SoftPWMSet(G, min(Gval, 255));
+  SoftPWMSet(B, min(Bval, 255));
 }
 
 double lightIntensity(int reading) {
@@ -67,8 +45,6 @@ double lightIntensity(int reading) {
 }
 
 void loop() {
-  int sensorValue = analogRead(A0);
-  double intensity = lightIntensity(sensorValue);
-  colorCycle(intensity);
+  setColor();
   delay(1);
 }
