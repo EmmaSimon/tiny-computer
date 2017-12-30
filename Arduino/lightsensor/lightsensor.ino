@@ -4,9 +4,11 @@
 #include <HID.h>
 
 
+const int touchSensor = 3;
 const int R = 8;
 const int G = 12;
 const int B = 13;
+
 int Rval = 255;
 int Gval = 0;
 int Bval = 0;
@@ -37,13 +39,21 @@ void colorCycle(double intensity) {
       gaining = G;
     }
   }
-  Serial.println(intensity);
-  Serial.println(Rval);
-  Serial.println(Gval);
-  Serial.println(Bval);
-  SoftPWMSet(R, int(Rval * intensity));
-  SoftPWMSet(G, int(Gval * intensity));
-  SoftPWMSet(B, int(Bval * intensity));
+
+  int invert = digitalRead(touchSensor);
+  if (invert) {
+    intensity = 1 - intensity;
+  }
+  if (intensity < .03) {
+    lightsOff();
+    return;
+  }
+  int Rset = int(Rval * intensity);
+  int Gset = int(Gval * intensity);
+  int Bset = int(Bval * intensity);
+  SoftPWMSet(R, Rset);
+  SoftPWMSet(G, Gset);
+  SoftPWMSet(B, Bset);
 }
 
 void lightsOff() {
@@ -59,11 +69,6 @@ double lightIntensity(int reading) {
 void loop() {
   int sensorValue = analogRead(A0);
   double intensity = lightIntensity(sensorValue);
-  if (intensity > .03) {
-    colorCycle(intensity);
-  } else {
-    lightsOff();
-  }
-
+  colorCycle(intensity);
   delay(1);
 }
